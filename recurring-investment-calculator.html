@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="theme-color" content="#f5f5f7" />
+  <title>Recurring Investment Calculator</title>
+  <style>
+    :root { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color-scheme:light dark; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:#f5f5f7; color:#111; min-height:100vh; }
+    .wrap { max-width:560px; margin:auto; padding:24px 18px 40px; }
+    h1 { font-size:32px; margin:10px 0 6px; }
+    .sub { color:#666; margin:0 0 20px; line-height:1.35; }
+    .card { background:#fff; border-radius:20px; padding:18px; box-shadow:0 2px 12px rgba(0,0,0,.07); margin-bottom:16px; }
+    label { display:block; font-size:14px; font-weight:600; margin:14px 0 6px; }
+    input,select { width:100%; font-size:20px; padding:13px 14px; border:1px solid #ccc; border-radius:12px; background:#fff; color:#111; }
+    .money { position:relative; }
+    .money span { position:absolute; left:14px; top:13px; font-size:20px; color:#666; }
+    .money input { padding-left:30px; }
+    button { width:100%; border:0; border-radius:14px; padding:15px; font-size:19px; font-weight:700; background:#007aff; color:white; margin-top:18px; }
+    .result { text-align:center; }
+    .label { font-size:15px; color:#666; margin-top:4px; }
+    .big { font-size:40px; font-weight:800; margin:4px 0 12px; }
+    .inflationBig { font-size:34px; font-weight:800; margin:4px 0 12px; }
+    .growth { font-size:26px; font-weight:800; margin:4px 0 12px; }
+    .divider { height:1px; background:#ddd; margin:18px 0; }
+    .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px; }
+    .mini { background:#f2f2f7; border-radius:12px; padding:12px; }
+    .mini b { display:block; font-size:19px; margin-top:3px; }
+    .note { font-size:13px; color:#666; line-height:1.4; margin-top:14px; }
+    .switchrow { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:16px; }
+    .switchrow label { margin:0; }
+    .hidden { display:none; }
+    .error { color:#b00020; font-weight:600; margin-top:12px; }
+    @media (prefers-color-scheme:dark) {
+      body { background:#000; color:#fff; }
+      .card { background:#1c1c1e; }
+      .sub,.note,.label { color:#aaa; }
+      input,select { background:#2c2c2e; color:#fff; border-color:#555; }
+      .mini { background:#2c2c2e; }
+      .divider { background:#444; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Recurring Investment Calculator</h1>
+  <p class="sub">Project a starting balance plus regular monthly or yearly investments, with either the Money Guy return assumption or your own rate, and see the result in both future dollars and today's dollars.</p>
+
+  <div class="card">
+    <label for="age">Current age</label>
+    <input id="age" type="number" inputmode="decimal" min="0" max="120" value="30" step="1">
+
+    <label for="startingBalance">Starting balance</label>
+    <div class="money"><span>$</span><input id="startingBalance" type="number" inputmode="decimal" min="0" value="10000" step="100"></div>
+
+    <label for="contribution">Regular contribution</label>
+    <div class="money"><span>$</span><input id="contribution" type="number" inputmode="decimal" min="0" value="500" step="25"></div>
+
+    <label for="frequency">Contribution frequency</label>
+    <select id="frequency">
+      <option value="monthly" selected>Monthly</option>
+      <option value="yearly">Yearly</option>
+    </select>
+
+    <label for="timing">Contribution timing</label>
+    <select id="timing">
+      <option value="end" selected>End of period</option>
+      <option value="beginning">Beginning of period</option>
+    </select>
+
+    <label for="futureAge">Future age</label>
+    <input id="futureAge" type="number" inputmode="decimal" min="0" max="120" value="65" step="1">
+
+    <div class="switchrow">
+      <label for="mode">Return assumption</label>
+      <select id="mode">
+        <option value="moneyguy" selected>Money Guy default</option>
+        <option value="custom">Custom rate</option>
+      </select>
+    </div>
+
+    <div id="customWrap" class="hidden">
+      <label for="customRate">Annual return (%)</label>
+      <input id="customRate" type="number" inputmode="decimal" min="-100" max="100" value="8" step="0.1">
+    </div>
+
+    <label for="inflationRate">Inflation rate (%)</label>
+    <input id="inflationRate" type="number" inputmode="decimal" min="0" max="100" value="2.5" step="0.1">
+
+    <button id="calc">Calculate</button>
+    <div id="error" class="error"></div>
+  </div>
+
+  <div class="card result">
+    <div class="label">Estimated future value</div>
+    <div id="futureValue" class="big">$0</div>
+
+    <div class="divider"></div>
+
+    <div class="label">Future value adjusted for inflation</div>
+    <div id="inflationValue" class="inflationBig">$0</div>
+    <div class="note">Shown in today's dollars.</div>
+
+    <div class="divider"></div>
+
+    <div class="label">Total contributions</div>
+    <div id="totalContributed" class="growth">$0</div>
+
+    <div class="label">Estimated investment growth</div>
+    <div id="investmentGrowth" class="growth">$0</div>
+
+    <div class="grid">
+      <div class="mini">Years invested<b id="years">0</b></div>
+      <div class="mini">Annual return<b id="rate">0.0%</b></div>
+      <div class="mini">Inflation<b id="inflationDisplay">0.0%</b></div>
+      <div class="mini">Contribution frequency<b id="frequencyDisplay">Monthly</b></div>
+    </div>
+
+    <p id="assumption" class="note"></p>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+function moneyGuyRate(age) {
+  if (age <= 20) return 10.0;
+  if (age >= 65) return 5.5;
+  return 10.0 - (age - 20) * 0.1;
+}
+
+function fmtMoney(v) {
+  return new Intl.NumberFormat('en-US', {
+    style:'currency', currency:'USD', maximumFractionDigits:0
+  }).format(v);
+}
+
+function calculate() {
+  const age = Number($('age').value);
+  const startingBalance = Number($('startingBalance').value);
+  const contribution = Number($('contribution').value);
+  const futureAge = Number($('futureAge').value);
+  const inflationRate = Number($('inflationRate').value);
+  const mode = $('mode').value;
+  const frequency = $('frequency').value;
+  const timing = $('timing').value;
+  $('error').textContent = '';
+
+  if (![age, startingBalance, contribution, futureAge, inflationRate].every(Number.isFinite) ||
+      age < 0 || futureAge < 0 || startingBalance < 0 || contribution < 0 || inflationRate < 0) {
+    $('error').textContent = 'Please enter valid positive numbers.';
+    return;
+  }
+
+  if (futureAge <= age) {
+    $('error').textContent = 'Future age must be greater than current age.';
+    return;
+  }
+
+  const annualRate = mode === 'moneyguy' ? moneyGuyRate(age) : Number($('customRate').value);
+
+  if (!Number.isFinite(annualRate) || annualRate <= -100) {
+    $('error').textContent = 'Please enter a valid annual return.';
+    return;
+  }
+
+  const years = futureAge - age;
+  const months = Math.round(years * 12);
+  const monthlyRate = (annualRate / 100) / 12;
+
+  let balance = startingBalance;
+  let totalContributed = startingBalance;
+
+  if (frequency === 'monthly') {
+    if (timing === 'beginning') {
+      for (let month = 0; month < months; month++) {
+        balance += contribution;
+        totalContributed += contribution;
+        balance *= (1 + monthlyRate);
+      }
+    } else {
+      for (let month = 0; month < months; month++) {
+        balance *= (1 + monthlyRate);
+        balance += contribution;
+        totalContributed += contribution;
+      }
+    }
+  } else {
+    if (timing === 'beginning') {
+      for (let month = 0; month < months; month++) {
+        if (month % 12 === 0) {
+          balance += contribution;
+          totalContributed += contribution;
+        }
+        balance *= (1 + monthlyRate);
+      }
+    } else {
+      for (let month = 1; month <= months; month++) {
+        balance *= (1 + monthlyRate);
+        if (month % 12 === 0) {
+          balance += contribution;
+          totalContributed += contribution;
+        }
+      }
+    }
+  }
+
+  const futureValue = balance;
+  const inflationFactor = Math.pow(1 + inflationRate / 100, years);
+  const inflationAdjustedValue = futureValue / inflationFactor;
+  const investmentGrowth = futureValue - totalContributed;
+
+  $('futureValue').textContent = fmtMoney(futureValue);
+  $('inflationValue').textContent = fmtMoney(inflationAdjustedValue);
+  $('totalContributed').textContent = fmtMoney(totalContributed);
+  $('investmentGrowth').textContent = fmtMoney(investmentGrowth);
+  $('years').textContent = Number.isInteger(years) ? years : years.toFixed(1);
+  $('rate').textContent = annualRate.toFixed(1) + '%';
+  $('inflationDisplay').textContent = inflationRate.toFixed(1) + '%';
+  $('frequencyDisplay').textContent = frequency === 'monthly' ? 'Monthly' : 'Yearly';
+
+  const timingText = timing === 'beginning' ? 'beginning' : 'end';
+  const frequencyText = frequency === 'monthly' ? 'monthly' : 'yearly';
+
+  if (mode === 'moneyguy') {
+    $('assumption').textContent =
+      'Money Guy mode uses the return assigned to the investor\\'s current age for the full projection: 10% through age 20, reduced by 0.1 percentage point for each year after 20, reaching 5.5% at age 65. Growth is compounded monthly. ' +
+      'Regular contributions are added ' + frequencyText + ' at the ' + timingText + ' of each period. Inflation adjustment uses the inflation rate entered above.';
+  } else {
+    $('assumption').textContent =
+      'The custom annual return is compounded monthly. Regular contributions are added ' + frequencyText + ' at the ' + timingText + ' of each period. Inflation adjustment uses the inflation rate entered above.';
+  }
+}
+
+$('mode').addEventListener('change', () => {
+  $('customWrap').classList.toggle('hidden', $('mode').value !== 'custom');
+  calculate();
+});
+
+$('calc').addEventListener('click', calculate);
+
+['age','startingBalance','contribution','futureAge','customRate','inflationRate','frequency','timing']
+  .forEach(id => $(id).addEventListener('input', calculate));
+
+calculate();
+</script>
+</body>
+</html>
